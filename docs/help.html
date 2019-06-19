@@ -1,0 +1,21 @@
+<font size=+2><center>Help Needed</center></font>
+
+<p>Here is an ever expanding list of things that I need help with. They are all related on game programming, with the limitations of the Mac Plus that we all know. If you can do anything to help me contact the people listed below, or shed any light in the other topics I need help with, please do so. It would help progress a lot in my retro-programming quest.
+
+<p>
+<b>People I would like to contact</b>:
+<ul>
+<li><i>Jonathan Gay</i>: programmer of Dark Castle; I think he then went on work in Macromedia and co-create the Flash standard we all know today.
+<li><i>Steve Capps</i>: Pivotal role in the creation of Studio Session. I would love to learn how 6 channels of freeform waves were done back in the day. See item below in "sound wise".
+<li><i><strike>Jamal Hannah</strike></i>: Wrote a small technical doc on the Studio Session (and Super Studio Session) sound file. Perhaps he could shed some light in this regard. <b>Contacted!</b>
+</ul>
+<p>
+<b>Sound wise</b>:
+<ul>
+<li>A way to mimick or retro-engineer Studio Session's playing capabilities.
+</ul>
+<br>Normally, the Sound Driver of these old macs allow for one channel playback of a waveform of arbitrary length. This is similar to windows or Mac OS when they play a .wav or a .aiff file. Studio Session, on the other hand, is able to manipulate 6 of these waveforms in order to mix them and send them to the Sound Driver. However, if you add two waveforms together, their amplitude might overflow the variable type they're in. A waveform is a series of bytes which have values from 0 to 255. By adding 2 waveforms together, you'd have to ensure that they be divided by 2 before you add them up, so that the total maximum remains 255.
+<p>This method is used in the Storm/Arashi sound kit code, available on the net. Download the .sit archive <a href=/files/storm.sit>here</a>. However, it only mixes 2 waveforms. There should be a way to efficiently generalize that assembly technique to 6 channels.
+
+
+<p><font size=-2>Last update: 10.23.05</font>

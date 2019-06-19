@@ -1,0 +1,25 @@
+<b>Offscreen</b> - Displays a graphics more intelligently than in PICTLoad or Sprite Movement. This time, an offscreen block of memory is set up and the picture is loaded into it invisibly (instead of being drawn on the screen before being copied to that space). Now with fixed memory leak in Offscreen.h. (added 8.28.04, updated 9.06.04)<br>
+<a href=/files/Offscreen.sit>Offscreen.sit</a> - <a href=/code/Offscreen.c.txt>Read source code in browser</a> - <a href=/code/Offscreen.h.txt>Offscreen.h header file</a>
+<p>
+<b>NoMenuBar</b> - Hides the menu bar. Uses precise low memory location and might not be compatible with later MacOS, but that shouldn't be a concern for this website, right? (added 6.01.04)<br>
+<a href=/files/NoMenuBar.sit>NoMenuBar.sit</a> - <a href=/code/NoMenuBar.c.txt>Read source code in browser</a>
+<p>
+<b>Accolay violin concerto</b> - An application of the square-wave synthetizer for a piece of music. This heavily relies on my notes.h header file. This plays the first few bars of the solo violin part of the Accolay violin concerto, while courageously dealing with double stops and broken chords using only the limited 1-channel capability of the square wave synthetizer ;-). The music is hard-coded in the main function of the source code - it'd be more intelligent to build up some kind of scripting system and have the program read music from text files. In case you don't have access to an old-enough macintosh, <a href=/files/accolay.mp3>hear the results</a> in a mp3 of a mic recording of my Mac SE playing it. (added 5.31.04)<br>
+<a href=/files/Accolay.sit>Accolay.sit</a> - <a href=/code/Accolay.c.txt>Read source code in browser</a> - <a href=/code/notes.h.txt>Notes.h header file</a>
+<p>
+<b>PICTLoad</b> - Uses SFGetFile, a dialog which lets the user fish for a PICT data file, which is loaded and then displayed. (added 5.31.04)<br>
+<a href=/files/PICTLoad.sit>PICTLoad.sit</a> - <a href=/code/PICTLoad.c.txt>Read source code in browser</a>
+<p>
+<b>Square-Wave demo</b> - This program displays a list of the count values of 5 octaves worth of notes around the middle C. The values represent the "count" variable used in a Tones array. I cannot guarantee compability of the noise production aspect of this program beyond Mac SE platforms. (added 5.31.04)<br>
+<a href=/files/swdemo.sit>swdemo.sit</a> - <a href=/code/swdemo.c.txt>Read source code in browser</a> - <a href=/code/notes.h.txt>Notes.h header file</a>
+<p>
+<b>BeepClock</b> - The program emits a short system beep every 1 second. This program illustrates regularly timed events (however, they are taken care of in the loop and are not set as interrupts). (added 5.13.04)<br>
+<a href=/files/BeepClock.sit>BeepClock.sit</a> - <a href=/code/BeepClock.c.txt>Read source code in browser</a>
+<p>
+<b>Buttons</b> - Things the program does: Displays a check box, radio buttons (2 choices) and 2 buttons - one which reacts as soon as it's hit; the other, as soon as the mouse is released (they both emit a system beep). The selection made with radio buttons affect the duration of the system beep (will only be relevant on old compact macs, probably prior to System 7). (added 5.04.04)<br>
+<a href=/files/controls.sit>controls.sit</a> - <a href=/code/graphx6b.c.txt>Read source code in browser</a>
+<p>
+<b>Sprite Movement</b> - Things the program does: Sets up a window, loads a resource file, loads a PICT resource, displays a PICT, uses CopyBits to copy video RAM <-> RAM, detects keyboard presses to move the image. (added 4.13.04)<br>
+<a href=/files/SpriteMovement.sit>SpriteMovement.sit</a> <a href=/files/SpriteMovementAlt.sit>Alternate</a> - <a href=/code/graphx4c.c.txt>Read source code in browser</a>
+
+

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:admin="http://webns.net/mvcb/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+    <title>Foray into 68000</title>
+    <link>http://s93768914.onlinehome.us/</link>
+    <description>Progress report on Mac 68k C programming</description>
+    <dc:language>en</dc:language>
+    <generator>wordpad</generator>
+    <pubDate>Fri, 09 Jun 2006 15:45:00 EST</pubDate>
+
+    <image>
+        <url>http://s93768914.onlinehome.us/img/titlebanner.gif</url>
+        <title>Foray into 68000</title>
+        <link>http://s93768914.onlinehome.us/</link>
+        <width>347</width>
+        <height>80</height>
+    </image>
+
+<item>
+    <title>RSS capability added</title>
+    <link>http://s93768914.onlinehome.us</link>
+    
+    <comments></comments>
+    
+
+    <author>nospam@example.com</author>
+    <content:encoded>
+    I will bring about much of the example codes I've made since late December 2004. In fact, this will be a priority over making new code.
+    </content:encoded>
+
+    <pubDate>Fri, 09 Jun 2006 15:45:00 EST</pubDate>
+    <guid isPermaLink="false"></guid>
+    
+</item>
+</channel>
+</rss>
