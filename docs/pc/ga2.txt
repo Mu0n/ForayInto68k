@@ -1,0 +1,729 @@
+#include "allegro.h"
+#include "ga2.h"
+#include "pmask.h"
+#include "pmask.c"
+
+#define MOVESPEED 1
+#define GAMEDELAY 10
+#define FRAMECHANGELOOPS 15
+#define BSPEED 3
+#define MAXPROJPERP 10
+#define STDBULCOOL 15
+#define BAR_H 7               /* hauteur zone inatteignable en haut de l'écran */
+#define EXT_R SCREEN_W - 30   /* bordure droite extrême de l'écran */
+#define EXT_L -6              /* bordure gauche */
+#define DEFNBUL 3
+
+/* variables à usages multiples */
+int i,j,k;
+
+/*structures*/
+struct bullet {
+int live;     /* 0: non, 1: oui */
+int xpos;
+int ypos;
+int damage;
+int dirflag;
+int dirvflag;
+int movehoriz;
+BITMAP *graph;
+};
+
+
+struct plyr {
+int score;
+int health;
+int xpos;
+int ypos;         
+int dirflag;      /* 1: droite, -1: gauche */
+int dirvflag;     /* 0: pas de dir verticale, 1: bas, -1: haut */
+int movehoriz;    /* flag spécial pour permettre les tirs verticaux, lorsque movehoriz=0. On doit utiliser ça puisque dirflag, le flag d'orientation horizontal, ne sera jamais nul puisqu'il sert a decider quelle fonction entre drawsprite et drawsprite_flip_h qu'on utilise. C'est laid mais ça marche */
+int framechange;  /* compteur decroissant pour savoir quand changer de frame */
+int shieldbool;   /* 0: pas de shield, n>0: temps restant pour le shield */
+int speedmodif;   /* changement de vitesse pour les curses et boosts */
+int clip;         /* type de munition. 0=normal autres: pas implémentés */
+int movflag;
+int nbb;     /* nombre alloué de balles */
+int nbbpresent;  /* nombre présent de balles */
+int bspeedmodif;  /* vitesse des balles */
+int bcool;        /* délai entre chaque balle (compteur décroissant) */
+int bcoolmodif;   /* modificateur de délai entre balles */
+int lastdir;      /* dernière direction pour tirer lorsque pas en mouvement. 0:devant
+                     1: bas droite, 2: bas, 3: bas gauche, 4: gauche, 5: haut gauche, 
+                     6: haut, 7: haut droite */
+int diagbuffer;     /* Permet de laisser compter le déplacement diagonal plus longtemps
+                     pour qu'on puisse tirer dans ces directions une fois immobilisé */
+BITMAP *graph[6];
+};
+
+struct plyr blue;  /* déclaration des joueurs et balles */
+struct plyr red;
+
+struct bullet bluebul[MAXPROJPERP];
+struct bullet redbul[MAXPROJPERP];
+
+struct PMASK *bluemask[5], *redmask[5], *bluebulmask[MAXPROJPERP], *redbulmask[MAXPROJPERP];
+
+PALETTE the_palette;
+BITMAP *ecran;
+DATAFILE *datafile;
+
+/* Déclarations des fonctions */
+
+void check_victory();
+void draw_health();
+void move_stuff();
+void projectiles();
+void reset_player(struct plyr *pt);
+void reset_playerpos();
+void load_normal_blue_graphs();
+void load_normal_red_graphs();
+void reset_bullet();
+void destroy_sprite_masks();
+void create_sprite_masks();
+
+
+/* PROCÉDURES et FONCTIONS */
+
+void check_victory()
+{
+if(blue.health==0)
+  {
+  red.score++;
+  while(key[KEY_R]==0)
+    {
+    clear_bitmap(ecran);
+    draw_health();
+    textprintf(ecran,font,0,0,2,"%d",blue.score);
+    textprintf_right(ecran,font,SCREEN_W-4,0,6,"%d",red.score);
+    draw_sprite(ecran,red.graph[5],red.xpos,red.ypos);
+    blit(ecran,screen,0,0,0,0,SCREEN_W,SCREEN_H);
+    rest(GAMEDELAY);
+    }  
+    reset_player(&blue);
+    reset_player(&red);
+    reset_playerpos;
+  }
+else if(red.health==0)  
+  {
+  blue.score++;
+  while(key[KEY_R]==0)
+    {
+    clear_bitmap(ecran);
+    draw_health();
+    textprintf(ecran,font,0,0,2,"%d",blue.score);
+    textprintf_right(ecran,font,SCREEN_W-4,0,6,"%d",red.score);
+    draw_sprite(ecran,blue.graph[5],blue.xpos,blue.ypos);
+    blit(ecran,screen,0,0,0,0,SCREEN_W,SCREEN_H);
+    rest(GAMEDELAY);
+    }
+    reset_player(&blue);
+    reset_player(&red);  
+    reset_playerpos;
+  }
+}
+   
+void create_sprite_masks()
+{
+int tempboucle;
+for(tempboucle=0;tempboucle<5;tempboucle++)
+  {
+  bluemask[tempboucle]=create_allegro_pmask(blue.graph[tempboucle]);
+  redmask[tempboucle]=create_allegro_pmask(red.graph[tempboucle]);
+  }
+for(tempboucle=0;tempboucle<MAXPROJPERP;tempboucle++)
+  {
+  bluebulmask[tempboucle] = create_allegro_pmask(bluebul[tempboucle].graph);
+  redbulmask[tempboucle] = create_allegro_pmask(redbul[tempboucle].graph);
+  }
+}
+ void destroy_sprite_masks()
+{
+int tempboucle;
+for(tempboucle=0;tempboucle<5;tempboucle++)
+  {
+  destroy_pmask(bluemask[tempboucle]);
+  destroy_pmask(redmask[tempboucle]);
+  }
+for(tempboucle=0;tempboucle<MAXPROJPERP;tempboucle++)
+  {
+  destroy_pmask(bluebulmask[tempboucle]);
+  destroy_pmask(redbulmask[tempboucle]);
+  }
+}
+ 
+
+void load_normal_blue_graphs()
+{
+blue.graph[0]=datafile[BSTAND].dat;
+blue.graph[1]=datafile[BRUN1].dat;
+blue.graph[2]=datafile[BRUN2].dat;
+blue.graph[3]=datafile[BRUN3].dat;
+blue.graph[4]=datafile[BRUN2].dat;
+blue.graph[5]=datafile[BVIC].dat;
+}
+void load_normal_red_graphs()
+{
+red.graph[0]=datafile[RSTAND].dat;
+red.graph[1]=datafile[RRUN1].dat;
+red.graph[2]=datafile[RRUN2].dat;
+red.graph[3]=datafile[RRUN3].dat;
+red.graph[4]=datafile[RRUN2].dat;
+red.graph[5]=datafile[RVIC].dat;
+}
+
+void reset_playerpos()
+{
+blue.xpos=25;
+red.xpos=260;
+blue.ypos=20;
+red.ypos=150;
+blue.dirflag=1;
+red.dirflag=-1;
+blue.lastdir=0;
+red.lastdir=4;
+}
+
+void reset_player(struct plyr *pt)
+{
+pt->health=100;
+pt->movflag=0;
+pt->dirvflag=0;
+pt->framechange=FRAMECHANGELOOPS;
+pt->shieldbool=0;
+pt->speedmodif=0;
+pt->clip=0;
+pt->speedmodif=0;
+pt->nbb=DEFNBUL;
+pt->bspeedmodif=0;
+pt->bcool=STDBULCOOL;
+pt->bcoolmodif=0;
+pt->movehoriz=0;
+}
+
+void reset_bullet()
+{
+/* met le projectile de base dans les bitmaps des munitions. pour changer
+de munitions, il ne faut pas oublier de clearer les bitmaps et en fabriquer d'autres avec les bonnes dimensions */
+for(i=0;i<MAXPROJPERP;i++)
+  {
+  destroy_bitmap(bluebul[i].graph);
+  destroy_bitmap(redbul[i].graph);
+  bluebul[i].graph=create_bitmap(16,10);
+  redbul[i].graph=create_bitmap(16,10);
+  bluebul[i].graph=datafile[BBUL].dat;
+  redbul[i].graph=datafile[RBUL].dat;
+  bluebul[i].live=0;
+  redbul[i].live=0;
+  bluebul[i].damage=10;
+  redbul[i].damage=10;
+  bluebul[i].xpos=SCREEN_W/2;
+  bluebul[i].ypos=SCREEN_H/2;
+  redbul[i].xpos=SCREEN_W/2;
+  redbul[i].ypos=SCREEN_H/2;
+  }
+}
+
+void draw_health()
+{
+rect(ecran,15,0,145,7,16);
+rect(ecran,170,0,300,7,16);
+if(blue.health!=0) rectfill(ecran,16,1,16+(int) blue.health*1.28,6,2);
+if(red.health!=0) rectfill(ecran,171,1,171+(int) red.health*1.28,6,6);
+}
+
+
+void projectiles()
+{
+if(blue.bcool>0) blue.bcool--;
+if(red.bcool>0) red.bcool--;
+if(key[KEY_LCONTROL] && blue.nbbpresent<blue.nbb && blue.bcool==0) {
+  blue.bcool=blue.bcoolmodif+STDBULCOOL;
+  blue.nbbpresent++;
+/* scan les éléments du tableaux des balles pour trouver un spot libre */
+  for(j=0;j<blue.nbb;j++)
+    {
+    i=j;
+    if(bluebul[j].live==0) break;
+    }
+/* on se sert de la valeur de i après la boucle, donc pas touche */
+  bluebul[i].live=1;
+  bluebul[i].xpos=blue.xpos+30;
+  bluebul[i].dirflag=blue.dirflag;
+  bluebul[i].dirvflag=blue.dirvflag;
+  if(bluebul[i].dirflag==-1) bluebul[i].xpos-=30;
+  bluebul[i].ypos=blue.ypos+15;
+  bluebul[i].movehoriz=blue.movehoriz;
+  if(blue.movflag==0)
+    {
+    if(blue.lastdir==0)
+      {
+      bluebul[i].dirflag=1;
+      bluebul[i].dirvflag=0;
+      bluebul[i].movehoriz=1;
+      }
+    if(blue.lastdir==1)
+      {
+      bluebul[i].dirflag=1;
+      bluebul[i].dirvflag=1;
+      bluebul[i].movehoriz=1;
+      }
+    if(blue.lastdir==2)
+      {
+      bluebul[i].dirflag=1;
+      bluebul[i].dirvflag=1;
+      bluebul[i].movehoriz=0;
+      }
+    if(blue.lastdir==3)
+      {
+      bluebul[i].dirflag=-1;
+      bluebul[i].dirvflag=1;
+      bluebul[i].movehoriz=1;
+      }
+    if(blue.lastdir==4)
+      {
+      bluebul[i].dirflag=-1;
+      bluebul[i].dirvflag=0;
+      bluebul[i].movehoriz=1;
+      }
+    if(blue.lastdir==5)
+      {
+      bluebul[i].dirflag=-1;
+      bluebul[i].dirvflag=-1;
+      bluebul[i].movehoriz=1;
+      }
+    if(blue.lastdir==6)
+      {
+      bluebul[i].dirflag=-1;
+      bluebul[i].dirvflag=-1;
+      bluebul[i].movehoriz=0;
+      }
+    if(blue.lastdir==7)
+      {
+      bluebul[i].dirflag=1;
+      bluebul[i].dirvflag=-1;
+      bluebul[i].movehoriz=1;
+      }
+    }
+  }
+if(joy[0].button[0].b && red.nbbpresent<red.nbb && red.bcool==0) {
+  red.bcool=red.bcoolmodif+STDBULCOOL;
+  red.nbbpresent++;
+  for(j=0;j<red.nbb;j++)
+    {
+    i=j;
+    if(redbul[j].live==0) break;
+    }
+  redbul[i].live=1;
+  redbul[i].xpos=red.xpos+30;
+  redbul[i].dirflag=red.dirflag;
+  redbul[i].dirvflag=red.dirvflag;
+  if(redbul[i].dirflag==-1) redbul[i].xpos-=30;
+  redbul[i].ypos=red.ypos+15;
+  redbul[i].movehoriz=red.movehoriz;
+  if(red.movflag==0)
+    {
+    if(red.lastdir==0)
+      {
+      redbul[i].dirflag=1;
+      redbul[i].dirvflag=0;
+      redbul[i].movehoriz=1;
+      }
+    if(red.lastdir==1)
+      {
+      redbul[i].dirflag=1;
+      redbul[i].dirvflag=1;
+      redbul[i].movehoriz=1;
+      }
+    if(red.lastdir==2)
+      {
+      redbul[i].dirflag=1;
+      redbul[i].dirvflag=1;
+      redbul[i].movehoriz=0;
+      }
+    if(red.lastdir==3)
+      {
+      redbul[i].dirflag=-1;
+      redbul[i].dirvflag=1;
+      redbul[i].movehoriz=1;
+      }
+    if(red.lastdir==4)
+      {
+      redbul[i].dirflag=-1;
+      redbul[i].dirvflag=0;
+      redbul[i].movehoriz=1;
+      }
+    if(red.lastdir==5)
+      {
+      redbul[i].dirflag=-1;
+      redbul[i].dirvflag=-1;
+      redbul[i].movehoriz=1;
+      }
+    if(red.lastdir==6)
+      {
+      redbul[i].dirflag=-1;
+      redbul[i].dirvflag=-1;
+      redbul[i].movehoriz=0;
+      }
+    if(red.lastdir==7)
+      {
+      redbul[i].dirflag=1;
+      redbul[i].dirvflag=-1;
+      redbul[i].movehoriz=1;
+      }
+    }
+  }
+for(i=0;i<blue.nbb;i++)
+  {
+  if(bluebul[i].live) 
+    {
+    if(bluebul[i].dirvflag!=0)
+      {
+      bluebul[i].ypos+=(blue.bspeedmodif+BSPEED)*bluebul[i].dirvflag;
+      if(bluebul[i].movehoriz==1) bluebul[i].xpos+=(blue.bspeedmodif+BSPEED)*bluebul[i].dirflag;
+      }
+    else bluebul[i].xpos+=(blue.bspeedmodif+BSPEED)*bluebul[i].dirflag;
+    }
+  }
+for(i=0;i<red.nbb;i++)
+  {
+  if(redbul[i].live) 
+    {
+    if(redbul[i].dirvflag!=0)
+      {
+      redbul[i].ypos+=(red.bspeedmodif+BSPEED)*redbul[i].dirvflag;
+      if(redbul[i].movehoriz==1) redbul[i].xpos+=(red.bspeedmodif+BSPEED)*redbul[i].dirflag;
+      }
+    else redbul[i].xpos+=(red.bspeedmodif+BSPEED)*redbul[i].dirflag;
+    }
+  }
+for(i=0;i<blue.nbb;i++)
+  {
+  if(bluebul[i].xpos>EXT_R || bluebul[i].xpos<EXT_L) 
+    {
+    bluebul[i].live=0;
+    bluebul[i].xpos=SCREEN_W/2;
+    blue.nbbpresent--;
+    }
+  else if(bluebul[i].ypos<BAR_H || bluebul[i].ypos>SCREEN_H) 
+    {
+    bluebul[i].live=0;
+    bluebul[i].ypos=SCREEN_H/2;
+    blue.nbbpresent--;
+    }
+  }
+for(i=0;i<red.nbb;i++)
+  {
+  if(redbul[i].xpos>EXT_R || redbul[i].xpos<EXT_L) 
+    {
+    redbul[i].live=0;
+    redbul[i].xpos=SCREEN_W/2;
+    red.nbbpresent--;
+    }
+  else if(redbul[i].ypos<BAR_H || redbul[i].ypos>SCREEN_H) 
+    {
+    redbul[i].live=0;
+    redbul[i].ypos=SCREEN_W/2;
+    red.nbbpresent--;
+    }
+  }
+/* collisions */
+
+for(i=0;i<blue.nbb;i++)
+  {
+  if(bluebul[i].live && check_pmask_collision(redmask[red.movflag], bluebulmask[i], red.xpos,red.ypos,bluebul[i].xpos,bluebul[i].ypos))
+    {
+    bluebul[i].live=0;
+    red.health-=bluebul[i].damage;
+    if(red.health<0) red.health=0;
+    blue.nbbpresent--;
+    }
+  }
+for(i=0;i<red.nbb;i++)
+  {
+  if(redbul[i].live && check_pmask_collision(bluemask[blue.movflag], redbulmask[i], blue.xpos,blue.ypos,redbul[i].xpos,redbul[i].ypos))
+    {
+    redbul[i].live=0;
+    blue.health-=redbul[i].damage;
+    if(blue.health<0) blue.health=0;
+    red.nbbpresent--;
+    }
+  }
+  
+/* dessine enfin les balles restantes*/
+for(i=0;i<blue.nbb;i++)
+  {
+  if(bluebul[i].live && bluebul[i].dirflag==1) draw_sprite(ecran,bluebul[i].graph,bluebul[i].xpos,bluebul[i].ypos);
+  if(bluebul[i].live && bluebul[i].dirflag==-1) draw_sprite_h_flip(ecran,bluebul[i].graph,bluebul[i].xpos,bluebul[i].ypos);
+  }
+for(i=0;i<red.nbb;i++)
+  {
+  if(redbul[i].live && redbul[i].dirflag==1) draw_sprite(ecran,redbul[i].graph,redbul[i].xpos,redbul[i].ypos);
+  if(redbul[i].live && redbul[i].dirflag==-1) draw_sprite_h_flip(ecran,redbul[i].graph,redbul[i].xpos,redbul[i].ypos);
+  }
+}
+
+void move_stuff(void)
+{
+
+if(key[KEY_UP]) {
+  blue.ypos -= MOVESPEED+blue.speedmodif;
+  blue.dirvflag=-1;
+  blue.framechange--;
+  if(blue.movflag==0) blue.movflag=1;
+  }
+else if(key[KEY_DOWN]) {
+  blue.ypos += MOVESPEED+blue.speedmodif;
+  blue.dirvflag=1;
+  blue.framechange--;
+  if(blue.movflag==0) blue.movflag=1;
+  }
+if(key[KEY_RIGHT]) {
+  blue.xpos += MOVESPEED+blue.speedmodif;
+  blue.dirflag=1;
+  blue.framechange--;
+  if(blue.movflag==0) blue.movflag=1;
+  blue.movehoriz=1;
+  }
+else if(key[KEY_LEFT]) {
+  blue.xpos -= MOVESPEED+blue.speedmodif;
+  blue.dirflag=-1;
+  blue.framechange--;
+  if(blue.movflag==0) blue.movflag=1;
+  blue.movehoriz=1;
+  }
+  
+if(key[KEY_RIGHT] && !key[KEY_UP] && !key[KEY_DOWN] && blue.diagbuffer==0) blue.lastdir=0;
+if(key[KEY_RIGHT] && key[KEY_DOWN]) 
+  {
+  blue.diagbuffer=8;
+  blue.lastdir=1;
+  }
+if(key[KEY_DOWN] && !key[KEY_LEFT] && !key[KEY_RIGHT] && blue.diagbuffer==0) blue.lastdir=2;
+if(key[KEY_LEFT] && key[KEY_DOWN])   
+  {
+  blue.diagbuffer=8;
+  blue.lastdir=3;
+  }
+if(key[KEY_LEFT] && !key[KEY_UP] && !key[KEY_DOWN] && blue.diagbuffer==0) blue.lastdir=4;
+if(key[KEY_LEFT] && key[KEY_UP]) 
+  {
+  blue.diagbuffer=8;
+  blue.lastdir=5;
+  }
+if(key[KEY_UP] && !key[KEY_LEFT] && !key[KEY_RIGHT] && blue.diagbuffer==0) blue.lastdir=6;
+if(key[KEY_RIGHT] && key[KEY_UP]) 
+  {
+  blue.diagbuffer=8;
+  blue.lastdir=7;
+  }
+if(blue.diagbuffer>0) blue.diagbuffer--;
+
+if(joy[0].stick[0].axis[0].pos>20 && joy[0].stick[0].axis[1].pos>-20 && joy[0].stick[0].axis[1].pos<20) red.lastdir=0;
+if(joy[0].stick[0].axis[0].pos>20 && joy[0].stick[0].axis[1].pos>20) 
+  {
+  red.diagbuffer=8;
+  red.lastdir=1;
+  }
+if(joy[0].stick[0].axis[1].pos>20 && joy[0].stick[0].axis[0].pos>-20 && joy[0].stick[0].axis[0].pos<20) red.lastdir=2;
+if(joy[0].stick[0].axis[0].pos<-20 && joy[0].stick[0].axis[1].pos>20) 
+  {
+  red.diagbuffer=8;
+  red.lastdir=3;
+  }
+if(joy[0].stick[0].axis[0].pos<-20 && joy[0].stick[0].axis[1].pos<20 && joy[0].stick[0].axis[1].pos>-20) red.lastdir=4;
+if(joy[0].stick[0].axis[0].pos<-20 && joy[0].stick[0].axis[1].pos<-20) 
+  {
+  red.diagbuffer=8;
+  red.lastdir=5;
+  }
+if(joy[0].stick[0].axis[1].pos<-20 && joy[0].stick[0].axis[0].pos<20 && joy[0].stick[0].axis[0].pos>-20) red.lastdir=6;
+if(joy[0].stick[0].axis[0].pos>20 && joy[0].stick[0].axis[1].pos<-20) 
+  {
+  red.diagbuffer=8;
+  red.lastdir=7;
+  }
+if(red.diagbuffer>0) red.diagbuffer--;
+
+if(!key[KEY_RIGHT] && !key[KEY_LEFT])
+  {
+  blue.movehoriz=0;
+  if(!key[KEY_UP] && !key[KEY_DOWN])
+    {
+    blue.movflag=0;
+    blue.dirvflag=0;
+    }
+  }
+if(!key[KEY_UP] && !key[KEY_DOWN])
+  {
+  blue.dirvflag=0;
+  if(!key[KEY_RIGHT] && !key[KEY_LEFT])
+    {
+    blue.movehoriz=0;
+    blue.movflag=0;
+    }
+  }
+  
+if(joy[0].stick[0].axis[1].pos>20) {
+  red.ypos += MOVESPEED+red.speedmodif;
+  red.dirvflag=1;
+  red.framechange--;
+  if(red.movflag==0) red.movflag=1;
+  }
+else if(joy[0].stick[0].axis[1].pos<-20) {
+  red.ypos -= MOVESPEED+red.speedmodif;
+  red.dirvflag=-1;
+  red.framechange--;
+  if(red.movflag==0) red.movflag=1;
+  }
+if(joy[0].stick[0].axis[0].pos<-20) {
+  red.xpos -= MOVESPEED+red.speedmodif;
+  red.dirflag=-1;
+  red.framechange--;
+  if(red.movflag==0) red.movflag=1;
+  red.movehoriz=1;
+  }
+else if(joy[0].stick[0].axis[0].pos>20) {
+  red.xpos += MOVESPEED+red.speedmodif;
+  red.dirflag=1;
+  red.framechange--;
+  if(red.movflag==0) red.movflag=1;
+  red.movehoriz=1;
+  }
+if(joy[0].stick[0].axis[0].pos>-20 && joy[0].stick[0].axis[0].pos<20)
+  {
+  red.movehoriz=0;
+  if(joy[0].stick[0].axis[1].pos<20 && joy[0].stick[0].axis[1].pos>-20)
+    {
+    red.movflag=0;
+    red.dirvflag=0;
+    }
+  }
+if(joy[0].stick[0].axis[1].pos<20 && joy[0].stick[0].axis[1].pos>-20)
+  { 
+  red.dirvflag=0;
+  if(joy[0].stick[0].axis[0].pos>-20 && joy[0].stick[0].axis[0].pos<20)
+    {
+    red.movehoriz=0;
+    red.movflag=0;
+    }
+  }
+  
+if(blue.xpos>EXT_R) blue.xpos=EXT_L;
+if(blue.xpos<EXT_L) blue.xpos=EXT_R;
+if(blue.ypos>SCREEN_H-30) blue.ypos=BAR_H;
+if(blue.ypos<BAR_H) blue.ypos=SCREEN_H-30;
+
+if(red.xpos>EXT_R) red.xpos=EXT_L;
+if(red.xpos<EXT_L) red.xpos=EXT_R;
+if(red.ypos>SCREEN_H-30) red.ypos=BAR_H;
+if(red.ypos<BAR_H) red.ypos=SCREEN_H-30;
+
+
+/* Est-ce le temps de changer de frame==framechange negatif? si oui, passe à la frame suivante */
+if(blue.framechange<=0) {
+  blue.framechange=FRAMECHANGELOOPS;
+  blue.movflag++;
+  if(blue.movflag==5) blue.movflag=1;
+  }
+
+if(red.framechange<=0){
+  red.framechange=FRAMECHANGELOOPS;
+  red.movflag++;
+  if(red.movflag==5) red.movflag=1;
+  }
+
+
+if(blue.dirflag==1) draw_sprite(ecran,blue.graph[blue.movflag],blue.xpos,blue.ypos);
+if(blue.dirflag==-1) draw_sprite_h_flip(ecran,blue.graph[blue.movflag],blue.xpos,blue.ypos);
+
+if(red.dirflag==1) draw_sprite(ecran,red.graph[red.movflag],red.xpos,red.ypos);
+if(red.dirflag==-1) draw_sprite_h_flip(ecran,red.graph[red.movflag],red.xpos,red.ypos);
+
+projectiles();
+check_victory();
+
+}
+END_OF_FUNCTION(move_stuff);
+
+
+
+
+
+int main(int argc, char *argv[])
+{
+
+
+/*** INITIALISATION ***/
+allegro_init();
+install_keyboard();
+install_timer();
+install_joystick(JOY_TYPE_8BUTTON);
+set_gfx_mode(GFX_SAFE,320,200,0,0);
+ecran=create_bitmap(SCREEN_W,SCREEN_H);
+clear_bitmap(screen);
+/*** ***/
+
+
+/*** Lecture des données ***/
+datafile = load_datafile("ga2.dat");
+set_palette(datafile[THE_PALETTE].dat);
+/* création des frames d'animation */
+for(i=0;i<5;i++){
+  blue.graph[i]=create_bitmap(35,30);
+  red.graph[i]=create_bitmap(35,30);
+  }
+blue.score=0;
+red.score=0;
+blue.health=100;
+red.health=100;
+blue.dirvflag=0;
+red.dirvflag=0;
+blue.framechange=FRAMECHANGELOOPS;
+red.framechange=FRAMECHANGELOOPS;
+blue.shieldbool=0;
+red.shieldbool=0;
+blue.speedmodif=0;
+red.speedmodif=0;
+blue.clip=0;
+red.clip=0;
+blue.movflag=0;
+red.movflag=0;
+blue.nbb=DEFNBUL;
+red.nbb=DEFNBUL;
+blue.nbbpresent=0;
+red.nbbpresent=0;
+blue.bspeedmodif=0;
+red.bspeedmodif=0;
+blue.bcoolmodif=0;
+red.bcoolmodif=0;
+load_normal_blue_graphs(); /* les personnages pourront changer de couleur ou forme, mais leurs bitmaps doivent suivre le format 35x30 */
+load_normal_red_graphs();
+reset_playerpos();
+reset_player(&blue);
+reset_player(&red);
+reset_bullet();
+create_sprite_masks();
+/*** ***/
+
+text_mode(-1);
+while(key[KEY_ESC]==0)
+{
+clear_bitmap(ecran);
+poll_joystick();
+move_stuff();
+draw_health();
+textprintf(ecran,font,0,0,2,"%d",blue.score);
+textprintf_right(ecran,font,SCREEN_W-4,0,6,"%d",red.score);
+blit(ecran,screen,0,0,0,0,SCREEN_W,SCREEN_H);
+rest(GAMEDELAY);
+}
+
+
+/*** NETTOYAGE ***/
+destroy_bitmap(ecran);
+destroy_sprite_masks();
+unload_datafile(datafile);
+/*** ***/
+
+}
