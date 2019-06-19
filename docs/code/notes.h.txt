@@ -1,0 +1,94 @@
+/* Equal temperament scale count variables. A standard to remember: all variations of C
+are considered to be at the start of a scale, and all variations of B at the end of it*/
+
+#define Cbnote -1
+#define Cnote  0
+#define Csnote 1
+#define Dbnote 1
+#define Dnote  2
+#define Dsnote 3
+#define Ebnote 3
+#define Enote  4
+#define Esnote 5
+#define Fbnote 4
+#define Fnote  5
+#define Fsnote 6
+#define Gbnote 6
+#define Gnote  7
+#define Gsnote 8
+#define Abnote 8
+#define Anote  9
+#define Asnote 10
+#define Bbnote 10
+#define Bnote  11
+#define Bsnote 12
+
+#define BASE 3600/TEMPO 
+
+/* TEMPO must be defined before #including notes.h. The following
+note lengths apply in the case where the quarter note is the basic beat 
+length of the piece. */
+
+#define QUAR  BASE
+#define QUARTRIP BASE*4/3
+#define HALF  BASE*2
+#define WHOL  BASE*4
+#define EIGH  BASE/2
+#define EIGHTRIP BASE*4/12
+#define SIXT  BASE/4
+#define THIR  BASE/8
+
+#define CNOTEREF 261.643286573146
+
+/* The following #define is a macro that assigns a triplet structure to an element of
+the Tones array, used by the SWsynth */
+#define ASSIGN(_tone,_count,_amplitude,_duration)\
+  _tone.count=_count;\
+  _tone.amplitude=_amplitude;\
+  _tone.duration=_duration;
+  
+  
+const double noteEqualRatios[12]={1.0,
+                            1.059463094359,
+                            1.122462048309,
+                            1.189207115003,
+                            1.259921049895,
+                            1.334839854170,
+                            1.414213562373,
+                            1.498307076877,
+                            1.587401051968,
+                            1.681792830507,
+                            1.781797436281,
+                            1.887748625363};
+                   
+/* MakeNote returns the count value used in a tone struct */
+int MakeNote(int note, int octaveOffset);
+int MakeNote(int note, int octaveOffset)
+  {  
+  /*octaveOffset is the octave related to the middle-C one. 
+    Middle-C octave would be 0, the one below, -1, etc     */
+  double temp;
+  int i;
+  
+  if(note<-1 || note>12) return 0;
+  
+  if(note==-1)
+    {
+    octaveOffset--;
+    note=11;
+    }
+  if(note==12)
+    {
+    octaveOffset++;
+    note=0;
+    }
+    
+  temp=CNOTEREF*noteEqualRatios[note]; /* Yields note in middle-C octave*/
+  
+  if(octaveOffset<0) for(i=0;i>octaveOffset;i--) temp/=2;
+  if(octaveOffset>0) for(i=0;i<octaveOffset;i++) temp*=2;
+  
+  temp=783360/temp;
+  temp+=0.5; /*round up*/
+  return (int)temp;
+  }

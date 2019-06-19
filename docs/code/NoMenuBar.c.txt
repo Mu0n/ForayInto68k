@@ -1,0 +1,68 @@
+/* Hides the menu bar by changing the content of memory location 0x0BAA, which
+contains the height of the menu bar. NOTE: it cannot be done on 64k ROM macs (the
+really early ones. This program has been tested under System 6.0.8 (Mac plus) and
+System 7.5 (Performa class mac). There is no guarantee it would work on OSX...yet */
+
+
+#include <Quickdraw.h>
+#include <Events.h>
+#include <Windows.h>
+
+static short     gs_dyMBar   = 0;
+static RgnHandle gs_hrgnMBar = NULL;
+
+void HideMenuBar(void)
+ {
+ Rect rcMBar;
+ short *setMBarHeight;
+ 
+ setMBarHeight=(short *)0x0BAA;
+ 
+ if ( gs_hrgnMBar == 0L) {
+ 
+    gs_dyMBar  =  GetMBarHeight();
+    
+    *setMBarHeight=0;
+    
+    rcMBar = qd.screenBits.bounds;
+    rcMBar.bottom = rcMBar.top + gs_dyMBar;
+    
+    gs_hrgnMBar = NewRgn();
+    RectRgn( gs_hrgnMBar, &rcMBar );
+    UnionRgn( GetGrayRgn(), gs_hrgnMBar, GetGrayRgn() );
+    PaintOne(nil,gs_hrgnMBar);
+    }
+ }
+
+void ShowMenuBar(void)
+ {
+ short *setMBarHeight;
+ setMBarHeight=(short *)0x0BAA;
+ 
+ if( gs_hrgnMBar) {
+ 
+   *setMBarHeight=gs_dyMBar;
+   DiffRgn(GetGrayRgn(), gs_hrgnMBar, GetGrayRgn());
+   DisposeRgn(gs_hrgnMBar);
+   gs_hrgnMBar=0L;
+   }
+ }
+
+void main()
+ {
+ EventRecord wutup;
+ InitGraf(&qd.thePort);
+ InitWindows();
+ 
+ SysBeep(120);
+ HideMenuBar();
+ DrawMenuBar(); /* Has no effect, as it should! */
+ FlushEvents(everyEvent,0);
+ while(wutup.what!=keyDown) GetNextEvent(keyDownMask,&wutup);
+ 
+ SysBeep(120);
+ ShowMenuBar();
+ DrawMenuBar();
+ while(!Button());
+ 
+ }

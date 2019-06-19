@@ -1,0 +1,224 @@
+#include <Quickdraw.h>
+#include <Events.h>
+#include <Windows.h>
+#include <StandardFile.h>
+#include "string.h"
+#include <Controls.h>
+#include <OSUtils.h>
+
+short globalRef;
+
+/* ****************** */
+/* * Function prot. * */
+/* ****************** */
+
+pascal void GetPICTData(void * dataPtr,short byteCount);
+OSErr OldLoadMethod(SFReply *reply,short *errorInfo);
+short NewLoadMethod(StandardFileReply *stdReply);
+
+/* ******************** */
+/* * Custom PICT read * */
+/* ******************** */
+
+pascal void GetPICTData(void * dataPtr, short byteCount)
+{
+OSErr err;
+long longCount;
+longCount=byteCount;
+err=FSRead(globalRef,&longCount,dataPtr);
+}
+
+/* ******************* */
+/* * StandardGetFile * */
+/* ******************* */
+
+short NewLoadMethod(StandardFileReply *stdReply)
+  {
+  SFTypeList myFileTypes;
+  short numFileTypes=1;
+  PicHandle myPicture;
+  
+  myFileTypes[0]='PICT';
+  
+  
+  StandardGetFile(nil,numFileTypes,myFileTypes,stdReply);
+  DisposeHandle((Handle)myPicture);
+  }
+  
+/* ****************** */
+/* *    SFGetFile     */
+/* ****************** */
+
+OSErr OldLoadMethod(SFReply *reply,short *errorInfo)
+  {
+  SFTypeList myFileTypes;
+  short numFileTypes=1;
+  QDProcsPtr savedProcs;
+  QDProcs myProcs;
+  PicHandle myPicture;
+  long longCount,myEOF,filePos;
+  Point wher;
+  OSErr err;
+ 
+  myFileTypes[0]='PICT';
+  wher.h=300;
+  wher.v=250;
+
+  SFGetFile(wher,"\p",nil,numFileTypes,myFileTypes,nil,reply);
+  
+  SetStdProcs(&myProcs);
+  myProcs.getPicProc=(Ptr)GetPICTData;
+  savedProcs=(*qd.thePort).grafProcs;
+
+  myPicture=(PicHandle)NewHandle(sizeof(Picture));
+  err=FSOpen("\psquarePICT",0,&globalRef);        
+  if(err!=noErr) {
+  *errorInfo=1;
+  return err;
+    }
+            
+  err=GetEOF(globalRef,&myEOF);
+  if(err!=noErr) {
+  *errorInfo=2;
+  return err;
+    }
+          
+  err=SetFPos(globalRef,fsFromStart,512);
+  if(err!=noErr) {
+  *errorInfo=3;
+  return err;
+    }
+
+  longCount=sizeof(Picture);
+  err=FSRead(globalRef,&longCount,(Ptr)*myPicture);
+  if(err!=noErr) {
+  *errorInfo=4;
+  return err;
+    }
+          
+  DrawPicture(myPicture,&(**myPicture).picFrame);
+  err=GetFPos(globalRef,&filePos);
+  if(err!=noErr) {
+  *errorInfo=5;
+  return err;
+    }
+
+  err=FSClose(globalRef);
+  if(err!=noErr) {
+    *errorInfo=6;
+    return err;
+    }
+  
+  DisposeHandle((Handle)myPicture);
+  (*qd.thePort).grafProcs=savedProcs;
+  }
+  
+  
+/* ****************** */
+/* *  Main function * */
+/* ****************** */
+
+void main()
+{
+
+ OSErr err;
+ short *errorInfo;
+ SFReply reply;
+ StandardFileReply stdReply;
+ 
+ WindowRecord mywin;
+ WindowPtr mywinptr;
+ Rect r,windowrect;
+ Rect rbutton1,rbutton2,rbutton3;
+ Point mousePos;
+ ControlHandle oldbutton;
+ ControlHandle newbutton;
+ ControlHandle quitbutton;
+ ControlHandle seekerbutton;
+ EventRecord wutup;
+ 
+ 
+ConstStr255Param fileName;
+ConstStr255Param pastr;
+char *tempstr;
+short exitflag=0;
+
+InitGraf(&qd.thePort);
+InitWindows();
+InitCursor();
+InitResources();
+
+windowrect=qd.screenBits.bounds;  /* Defines a rectangle the size of the screen */
+SetRect(&rbutton1,100,100,200,120);
+SetRect(&rbutton2,100,125,230,145);
+SetRect(&rbutton3,100,150,175,170);
+
+
+mywinptr=NewWindow(&mywin,&windowrect,"\p",true,2,(WindowPtr)-1,true,0);
+SetPort(mywinptr);
+oldbutton=NewControl(mywinptr,&rbutton1,"\pSFGetFile",true,0,0,0,pushButProc,0);
+newbutton=NewControl(mywinptr,&rbutton2,"\pStandardGetFile",true,0,0,0,pushButProc,0);
+quitbutton=NewControl(mywinptr,&rbutton3,"\pQuit",true,0,0,0,pushButProc,0);
+
+FlushEvents(everyEvent,0);
+
+while(!exitflag)
+{
+GetNextEvent(everyEvent,&wutup);
+if(wutup.what==mouseDown)
+  {
+    mousePos=wutup.where;
+    GlobalToLocal(&mousePos);
+    switch(FindControl(mousePos,mywinptr,&seekerbutton))
+      {  
+      case inButton:
+        TrackControl(seekerbutton,mousePos,nil);
+        if(seekerbutton==oldbutton)
+          {
+          err=OldLoadMethod(&reply,errorInfo);
+          
+          if(err)
+            {
+            switch(*errorInfo)
+              {
+              case 1:
+                sprintf(tempstr,"Error while opening file:%d",err);
+                break;
+              case 2:
+                sprintf(tempstr,"Error while finding EOF:%d",err);
+                break;
+              case 3:
+                sprintf(tempstr,"Error while attempting to skip PICT header:%d",err);
+                break;
+              case 4:
+                sprintf(tempstr,"Error while reading PICT:%d",err);
+                break;
+              case 5:
+                sprintf(tempstr,"Verification error:%d",err);
+                break;
+              case 6:
+                sprintf(tempstr,"Error while attempting to close file:%d",err);
+                break;
+            
+              } /*switch*/
+            MoveTo(15,65);
+            pastr=CtoPstr(tempstr);
+            DrawString(pastr);
+            }  /* end if(err) */
+          } /*end oldbutton */
+        if(seekerbutton==newbutton)
+          {
+          err=NewLoadMethod(&stdReply);
+          MoveTo(15,65);
+          MoveTo(100,160);
+          DrawString(stdReply.sfFile.name);
+          } /*end newbutton */
+        if(seekerbutton==quitbutton)
+          {
+          exitflag=1;
+          } /* end quitbutton */
+      break;
+      } /*end switch*/
+  } /* end mousedown */
+} /*end while */
+} /* end main */

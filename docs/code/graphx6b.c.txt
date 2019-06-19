@@ -1,0 +1,119 @@
+/* Controls example - a small program that shows how to deal with controls and its
+related mouse events. The program has 2 buttons: one which yields an immediate reaction
+as soon as the mouse is pressed down on it; the other reacts when the mouse has
+successfully been pressed and also released inside its boundaries. The check box makes
+every other control active or inactive. There are also 2 radio buttons that give 2
+choices for the duration of the system beep.
+*/
+
+#include <Quickdraw.h>
+#include <Events.h>
+#include <Windows.h>
+#include <Controls.h>
+#include <OSUtils.h>
+
+void main()
+{
+ WindowRecord mywin;
+ WindowPtr mywinptr;
+ Rect windowrect,r;
+ Point mousePos;
+ ControlHandle beepbutton,beepbutton2; /*used for creating these buttons. I chose not to load up CTRL resources */
+ ControlHandle checkbox; /*this checkbox will be used to activate/deactivate the buttons*/
+ ControlHandle radio,radio2; /*radio buttons that will set the duration of the system beep*/
+ ControlHandle seekercontrol; /*used for detecting which button was pressed using FindControl*/
+ EventRecord wutup; 
+ short waitforup=0; /* waitforup will be a status flag for our "activate on release" button */
+ short beepDuration=20;
+ 
+// xxxxxxxxxxx Initialization - 1 window takes up entire screen xxxxxxxxxxxx
+InitGraf(&qd.thePort);
+InitWindows();
+InitCursor();
+windowrect=qd.screenBits.bounds;
+mywinptr=NewWindow(&mywin,&windowrect,"\p",true,2,(WindowPtr)-1,true,0);
+SetPort(mywinptr);
+
+// xxxxxxxxxxx Controls initialization xxxxxxxxxxxxx
+SetRect(&r,100,100,230,120);
+beepbutton=NewControl(mywinptr,&r,"\pBeep Hit",true,0,0,0,pushButProc,0); /* Our button creation */
+SetRect(&r,100,125,250,145); 
+beepbutton2=NewControl(mywinptr,&r,"\pBeep Release",true,0,0,0,pushButProc,1);
+SetRect(&r,300,100,400,120); 
+radio=NewControl(mywinptr,&r,"\pShort",true,1,0,1,radioButProc,2);
+SetRect(&r,300,125,420,145);
+radio2=NewControl(mywinptr,&r,"\pLong",true,0,0,1,radioButProc,3);
+SetRect(&r,125,75,200,95);
+checkbox=NewControl(mywinptr,&r,"\pToggle",true,1,0,1,checkBoxProc,4);
+
+// xxxxxxxxxxx Last preparations before the main loop xxxxxxxxxxxxx
+MoveTo(100,175);
+DrawString("\pPress any key to exit.");
+FlushEvents(everyEvent,0);
+
+// xxxxxxxxxxx Main Loop xxxxxxxxxxxxxx
+do{
+
+  GetNextEvent(everyEvent,&wutup);
+  if(wutup.what==mouseDown)
+    {
+    mousePos=wutup.where;
+    GlobalToLocal(&mousePos);
+    switch(FindControl(mousePos,mywinptr,&seekercontrol))
+      {
+      case inButton:
+        if(seekercontrol==beepbutton) 
+          {
+          SysBeep(beepDuration); /*behavior of the first button must be placed here for immediate effect as the mouse is pressed down*/
+          FlushEvents(everyEvent,0); /* avoid having incessant beeps stacking up */
+          }
+        if(TrackControl(seekercontrol,mousePos,nil))      
+          if(seekercontrol==beepbutton2) waitforup=1; /*behavior of the second button takes effect indirectly via a flag value after the tracking down of the button press is over with*/
+      break;
+      case inCheckBox:
+        TrackControl(seekercontrol,mousePos,nil);
+        if(seekercontrol==checkbox)
+          {
+          if(GetCtlValue(checkbox)==1)
+            {
+            SetCtlValue(checkbox,0);
+            HiliteControl(beepbutton,255);
+            HiliteControl(beepbutton2,255);
+            HiliteControl(radio,255);
+            HiliteControl(radio2,255);
+            }
+          else if(GetCtlValue(checkbox)==0)
+            {
+            SetCtlValue(checkbox,1);
+            HiliteControl(beepbutton,0);
+            HiliteControl(beepbutton2,0);
+            HiliteControl(radio,0);
+            HiliteControl(radio2,0);
+            }
+          } 
+          if(seekercontrol==radio)
+          {
+          SetCtlValue(radio,1);
+          SetCtlValue(radio2,0);
+          beepDuration=20;
+          }
+        if(seekercontrol==radio2)
+          {
+          SetCtlValue(radio,0);
+          SetCtlValue(radio2,1);
+          beepDuration=60;
+          }
+      break;
+      } /* switch control */
+    } /* if mouseDown*/
+    
+  if(waitforup)
+    {
+    waitforup=0;
+    SysBeep(beepDuration);
+    FlushEvents(everyEvent,0); /* avoid having incessant beeps stacking up */
+    }
+  } /*end of do */
+while(wutup.what!=keyDown);
+
+} /* end of main */

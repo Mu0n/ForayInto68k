@@ -1,0 +1,98 @@
+/* Square-wave synth Demo- draws the "count" values (related to pitch) of all 12-tone
+degrees in each octave, for 5 octaves. Then it plays a C major scale across that
+spectrum. Quit at the end by clicking the mouse. The pitch of the lower portion is
+inaccurate and the method used in notes.h should either be revised, or the values
+should be punched in individually from the Inside Macintosh volume III reference.
+
+NOTE: I have no idea how compatible these routines are beyond a Mac SE. Use at your own
+risk. In emulated environments (Basilisk or vMac), I simply hear nothing. */
+
+
+#include <QuickDraw.h>
+#include <Windows.h>
+#include <Sound.h>
+#include <OSUtils.h>
+#include "notes.h"
+#include "string.h"
+
+void main()
+{
+Ptr myPtr;
+Handle myHandle;
+SWSynthPtr mySWPtr;
+
+WindowRecord mywin;
+WindowPtr mywinptr;
+Rect r;
+char tempstr[10];
+ConstStr255Param pastr;
+int freq;
+int i,
+    j,
+    timer,
+    buffSize;
+
+
+InitGraf(&thePort);
+InitWindows();
+
+r=qd.screenBits.bounds;
+mywinptr=NewWindow(&mywin,&r,"\p",true,3,(WindowPtr)-1,true,0);
+SetPort(mywinptr);
+
+for(j=-3;j<=3;j++)
+  {
+  for(i=0;i<=11;i++)
+  {
+  MoveTo((j+3)*70,30+i*15);
+  freq=MakeNote(i,j);
+  sprintf(tempstr,"%d",freq);
+  pastr=CtoPstr(tempstr);
+  DrawString(pastr); 
+  }
+  }
+buffSize=5+3*sizeof(short)*50;
+
+myHandle=NewHandle(buffSize);
+HLock(myHandle);
+myPtr=*myHandle;
+mySWPtr=(SWSynthPtr)myPtr;
+mySWPtr->mode=swMode;
+
+/* Fills out 5 octaves of notes into the buffer. If you pay attention
+to what you hear, you'll wince at the imperfection of the bottom scales. 
+I need to find a better way to deal with the equal-tempered pitch values. */
+for(j=-3;j<=3;j++)
+  {
+  i=0;
+  freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[0+7*(j+3)],freq,200,30);
+  i=2;
+    freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[1+7*(j+3)],freq,200,30);
+  i=4;
+    freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[2+7*(j+3)],freq,200,30);
+  i=5;
+    freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[3+7*(j+3)],freq,200,30);
+  i=7;  freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[4+7*(j+3)],freq,200,30);
+  i=9;
+    freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[5+7*(j+3)],freq,200,30);
+  i=11;
+    freq=MakeNote(i,j);
+  ASSIGN(mySWPtr->triplets[6+7*(j+3)],freq,200,30); 
+  }
+  ASSIGN(mySWPtr->triplets[49],0,0,0); 
+  
+StartSound((Ptr)mySWPtr,buffSize,(SndCompletionProcPtr)nil);
+timer=TickCount();
+while(TickCount()-timer<35*30); /* Time to wait before stopping the chip. If you don't
+use StopSound, the chip will keep on emitting a remanant noise */
+
+StopSound();
+HUnlock(myHandle);  
+while(!Button());
+}

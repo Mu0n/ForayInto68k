@@ -1,0 +1,28 @@
+/* Always make sure the Apple library "MacTraps" is linked in your project. 
+If you skip this step, all of the regular mac toolbox functions will go 
+unrecognized and the linker will complain about it.*/
+
+void main(void)
+  {
+  InitGraf(&qd.thePort); 
+  InitFonts();
+  InitWindows();
+  InitMenus();
+  TEInit();
+  InitDialogs();
+  InitCursor();
+  GetDateTime((unsigned long*)(&qd.randSeed));
+  FlushEvents(everyEvent,0);
+  }
+
+/* There you have it. Wasn't that bad, was it? These commands initialize a 
+series of macintosh managers. Note that you could skip a few of those, without 
+much serious adverse effect. However, if you skip the InitCursor function, 
+your cursor will get stuck as a watch cursor for the duration of your program. 
+
+Also, the GetDateTime is used to give the random function a different value each 
+time you run your program, since it will depend on the date and time that 
+program is run. Now, since that program doesn't do anything at all, much less 
+try to calculate random values anywhere, it won't do much good *here*. But, 
+should you use the Random() function of the toolbox, you'll get non-monotonous 
+results each time. */

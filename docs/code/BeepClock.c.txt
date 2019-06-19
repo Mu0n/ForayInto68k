@@ -1,0 +1,35 @@
+#include <QuickDraw.h>
+#include <Events.h>
+#include <Windows.h>
+#include <OSUtils.h>
+
+void main()
+{
+EventRecord wutup;
+WindowRecord theWindow;
+WindowPtr theWindowPtr;
+Rect r;
+int nextTimer=0;
+
+short exitflag=0;
+
+InitGraf(&qd.thePort);
+InitWindows();
+
+r=qd.screenBits.bounds;
+theWindowPtr=NewWindow(&theWindow,&r,"\p",true,2,(WindowPtr)-1,true,0);
+SetPort(theWindowPtr);
+
+
+while(!exitflag)
+  {
+  
+  if(TickCount()>nextTimer)
+    {
+    nextTimer=TickCount()+60;
+    SysBeep(1);
+    }
+  GetNextEvent(everyEvent,&wutup);
+  if(wutup.what==keyDown) break;
+  }
+}

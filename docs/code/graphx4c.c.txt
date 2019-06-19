@@ -1,0 +1,143 @@
+ /* This program makes the user move a small bitmap image on the screen with the WASD
+ directional keys. The program first loads up a resource file called respic, uses a
+ PicHandle to load up the PICT resource, then displays it on screen with DrawPicture.
+ For animation purposes, DrawPicture is too slow to be used as the main drawing function.
+ This is why a CopyBits call is made to copy the pixels of the image on screen to a
+ bitmap array in memory. Once this is done, said bitmap is used as the source for
+ CopyBits calls from memory to video memory. This is what will be used in the main loop.
+ 
+ The program can be improved by either finding a way to load a PICT resource and drawing
+ it directly in an 'offscreen' bitmap, or by storing image data in a simple sequential
+ raw data file - this would imply that a custom load bitmap function be written.*/
+
+#include <Quickdraw.h>
+#include <Events.h>
+#include <Windows.h>
+#include <Resources.h>
+#include <Memory.h>
+#include <OSUtils.h>  /* needed for Delay() */
+
+#define DELTACST 1 /* image displacement (in pixels) in each cycle of the main loop when there's movement */
+
+void KeybToggler(EventRecord wutup,char *moveFlags); /*Checks the WASD keys and updates the movement flag*/
+void ChangePos(char moveFlags, Rect *r); /*Uses movement flag values to make the actual displacement of the rectangle that contains the bitmap */
+
+void ChangePos(char moveFlags, Rect *r)
+{
+if((moveFlags&0x01)==0x01) OffsetRect(r,0,-DELTACST); /*move upward*/
+if((moveFlags&0x02)==0x02) OffsetRect(r,-DELTACST,0); /*move left*/
+if((moveFlags&0x04)==0x04) OffsetRect(r,0,DELTACST); /*move down*/
+if((moveFlags&0x08)==0x08) OffsetRect(r,DELTACST,0); /*move right*/
+}
+
+void KeybToggler(EventRecord wutup, char *moveFlags)
+{
+long int bit; 
+ bit=wutup.message&charCodeMask;  /*bit is used for brevity; contains the character code that was detected as pressed key OR released key*/
+ /* w or W */
+   if(bit==0x57||bit==0x77)
+     {
+     *moveFlags^=0x01;
+     }
+ /* a or A */
+   if(bit==0x61||bit==0x41)
+     {
+     *moveFlags^=0x02;  
+     }   
+ /* s or S */
+   if(bit==0x53||bit==0x73)
+     {
+     *moveFlags^=0x04;
+     }
+ /* d or D */
+   if(bit==0x44||bit==0x64)
+     {
+     *moveFlags^=0x08;
+     }
+}
+
+void main(void)
+{
+/*
+mywin: Used to initialize a new window 
+mywinptr: Pointer needed as a reference for all uses of the window
+r: rect of the area in which the bitmap will be drawn
+windowrect: boundaries of the drawing area window
+resid: id number of the resource file. Needed to close the file
+size: will be needed to calculate the amount of RAM that the bitmap will need
+bmWidth: bmWidth is a temp calculation variable
+bmHeight: same
+mybitmap: a structure that contains info and the pointer related to the bitmap
+moveFlags: the first 4 bits of this char will be used as toggles for movement. 1st: up, 2nd: left, 3rd: down, 4th: right.
+*/
+
+WindowRecord mywin;
+WindowPtr mywinptr;
+Rect r,windowrect;
+PicHandle testpichand;
+int resid,size,bmWidth,bmHeight;
+BitMap mybitmap;
+char moveFlags=0;
+
+EventRecord wutup;   /* structure used for event detection */
+
+InitGraf(&qd.thePort);
+InitWindows();
+InitCursor();
+InitResources();
+FlushEvents(everyEvent,0); /* empties the stack, gets ready to detect 
+future keydown, keyup events*/
+
+
+windowrect=qd.screenBits.bounds;  /* Defines a rectangle the size of the screen */
+InsetRect(&windowrect,30,50);	  /* makes it 30 pixels less wide and 50 less high */
+mywinptr=NewWindow(&mywin,&windowrect,"\pAnimation Test",true,5,(WindowPtr)-1,true,0);
+SetPort(mywinptr);  /* Handling a window and setting the graphics port to it */
+
+testpichand=(PicHandle)NewHandle(sizeof(Picture)); /* Init handle for a Picture, which will be
+used for the first drawing*/
+resid=OpenResFile("\prespic");  /* opening resource file 'respic' */
+if(!resid) ExitToShell();
+testpichand=GetPicture(128); /*putting a PicHandle on PICT resource id 128*/
+
+HLock((Handle)testpichand); /*It's a good idea to lock a Handle while it's being implicated in memory accessing, copying etc*/
+mybitmap.bounds=(*testpichand)->picFrame; /*Captures the PICT's useful rectangular area*/
+r=mybitmap.bounds;
+DrawPicture(testpichand,&r); /*Puts the PICT on screen*/
+HUnlock((Handle)testpichand); /*Unlocks the handle*/
+KillPicture(testpichand);   /* the PicHandle is no longer needed */
+CloseResFile(resid);  /* resource file no longer needed */
+
+bmHeight=r.bottom-r.top;
+bmWidth=r.right-r.left;
+
+/*the following 4 lines calculate the minimum amount of row bytes needed for a width of bmWidth 'useful' pixels. The value seeked is an even multiple of bytes that is greater than bmWidth*/
+mybitmap.rowBytes=bmWidth/8+((bmWidth%8>0)?1:0); /*gets a multiple of 8 above the value of the width, might be even or odd*/
+mybitmap.rowBytes+=((mybitmap.rowBytes%2>0)?1:0); /*adjusts to get an even value of the previous line, if it's not already one*/
+if(mybitmap.rowBytes==0) mybitmap.rowBytes=2; /*corner case just for kicks*/
+size=bmHeight*mybitmap.rowBytes*sizeof(char *); /*final size of the bitmap, in bytes*/
+
+mybitmap.baseAddr=NewPtr(size); /*Allocates this chunk of RAM for the bitmap*/
+
+CopyBits(&(mywinptr->portBits),&mybitmap,&r,&mybitmap.bounds,srcCopy,NULL); /*loads bitmap from previously displayed DrawPicture to the bitmap array*/
+CopyBits(&mybitmap,&(mywinptr->portBits),&mybitmap.bounds,&r,srcXor,NULL); /*redraws the bitmap at the same place on screen, with Xor copying - this will erase the initial image*/
+OffsetRect(&r,50,50); /*moves the drawing rectangle 50 pixels to left and 50 pixels down*/
+
+CopyBits(&mybitmap,&(mywinptr->portBits),&mybitmap.bounds,&r,srcCopy,NULL); /*initial position of the image*/
+SetEventMask(mDownMask+keyDownMask+keyUpMask+autoKeyMask); /*filters all other kinds of events*/
+
+do{
+GetNextEvent(keyDownMask+keyUpMask+autoKeyMask,&wutup);    /* gets event into the stack */
+if(wutup.what==keyDown||wutup.what==keyUp) KeybToggler(wutup,&moveFlags); /*will only care to update the moveFlags if a keyboard "change" (keyup or keydown) is detected*/
+if(moveFlags!=0)
+  {
+  ChangePos(moveFlags,&r); /*updates the coordinates of the drawing rectangle*/
+  CopyBits(&mybitmap,&(mywinptr->portBits),&mybitmap.bounds,&r,srcCopy,NULL); /*draws the figure*/
+  Delay(1,NULL); /*small delay. Should be changed to machine independant delay*/
+  }
+}
+while(!Button());   /*a mouse click will exit this loop*/
+
+/*I'm hoping that ExitToShell disposes of all pointers, handles that were set up by the program. It should.*/
+ExitToShell();
+}

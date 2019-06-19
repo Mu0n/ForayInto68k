@@ -1,0 +1,83 @@
+/* PICT Loader: very simple program that opens type 1 (b&w) PICT files (data fork),
+which can be made in MacDraw while saving as in PICT format, or from various other
+programs. Note that a 512-byte header must be skipped before reading the actual
+picture content. The program also demonstrates the usage of the standard file get 
+dialog (SFGetFile), which is a System 1-6 call, as opposed to System 7's StandardGetFile
+*/
+
+
+#include <Quickdraw.h>
+#include <Events.h>
+#include <Windows.h>
+#include <StandardFile.h>
+#include <OSUtils.h>
+
+#define EXIT_FAILURE 0
+#define EXIT_SUCCESS 1
+
+short OldFile(void);
+
+short OldFile()
+  {
+  SFTypeList myTypes;
+  SFReply reply;
+  short result=0;
+  Point where={50,50};
+  myTypes[0]='PICT';
+  
+  SFGetFile(where,"\pSelect a file",0L,1,myTypes,0L,&reply);
+  
+  if(reply.good)
+    {
+    FSOpen(reply.fName,reply.vRefNum,&result);
+    }
+  return result;
+  }
+
+
+int main(int argc, char * argv[])
+{
+int result=EXIT_FAILURE;
+PicHandle myPicture;
+long count;
+
+WindowRecord mywin;
+WindowPtr mywinptr;
+Rect r,windowrect;
+EventRecord wutup;
+short file;
+
+
+InitGraf(&qd.thePort);
+InitWindows();
+InitCursor();
+
+windowrect=qd.screenBits.bounds;  
+mywinptr=NewWindow(&mywin,&windowrect,"\p",true,2,(WindowPtr)-1,true,0);
+
+SetPort(mywinptr);
+FlushEvents(everyEvent,0);
+
+
+file=OldFile();
+
+if(file!=0)
+  {
+  GetEOF(file,&count);
+  count-=512;
+  myPicture=(PicHandle)NewHandle(count);
+  SetFPos(file,fsFromStart,512);
+  HLock((Handle)myPicture);
+  FSRead(file,&count,(Ptr)*myPicture);
+  HUnlock((Handle)myPicture);
+  
+  FSClose(file);
+  result=EXIT_SUCCESS;
+  }
+
+r=(*myPicture)->picFrame;
+DrawPicture(myPicture,&r);
+
+
+while(!Button());
+}
