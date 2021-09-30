@@ -35,20 +35,24 @@ font-family:sans-serif;
 <TD width=512>
 
   <b>Reverse-engineering of Studio Session (from Bogas Productions 1986) song format</b>
-  <br>(Note: this is a spartan place-holder page for the RetroChallenge from 68kmla for October 2021)
 <p>
-Phase 1 (underway): open a song file, detect every hex code for note change, repetitions, instrument change, etc.<br>
-  Play a square wave pitch correct square wave synth for any single channel, one at a time
-  <p>
-    Phase 2: Play 4 channels simultaneously with the 4-tone synth
-    <p>Phase 3: Load instrument files and play through the song as you can hear it in the official app. This will open up playing these files programatically in any project.
-<p>
+Phase 1 (in progress):<br>
+---DONE:<br>
+-Load a song file<br>
+-Detect basic info: instrument list, master key, master tempo, most proprietary commands<br><br>
+-Use the Sound Driver square-wave synth to play back a channel<br>
+<p>---TO DO:<br>
+-Create an interface that displays song info<br>
+-Select a channel to play back<br>
+-Very aggressively cut up the source code into many small files for future management<br>
+-Get some timing measurement routines to test out some optimizations<br>
 
-<p>
+<p>Screenshot of current state (October 1st 2021)
   <img src="./ress.png" width=512>
-<p>
+<p>Current showcasing video:<br>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/bBvUJi0LOD0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>  
   
-<font size=-2>Last update: 08.25.2021</font>
+<font size=-2>Last update: 10.01.2021</font>
   
 
 </TD><TD width=3><img src=https://mu0n.github.io/ForayInto68k/img/spacer.gif></td>
