@@ -35,7 +35,15 @@ font-family:sans-serif;
 <TD width=512>
 
   <b>Reverse-engineering of Studio Session (from Bogas Productions 1986) song format</b>
-<p>
+  <p><strong>Goal</strong>: Load a Studio Session song file (along with its instruments) and play it back, close to the original in a custom game program (eg in an intro splash screen)
+
+<p><strong>Context:</strong> Studio Session from Bogas Productions released in 1986. It uses 11 kHz instrument sound samples of arbitrary sizes and mixes up to 6 tracks together to create music that went beyond the default Apple Sound Driver, whose most similar mode of usage featured 4 channels of 256 byte-long sound waves.
+
+  <p><strong>Use case if the project comes to completion:</strong> This song format has a very mature song editor with the usual Mac GUI frills using standard musical notation. There are nifty tools that allows to re-use chunks of music (phrase library) and repeat some sections. If I can programmatically play back a song, this could be incorporated into a game programming project very easily. Some advanced music could be played back in a title screen or during a non-cpu intensive part of a game (cinematics for example). This was done commercially in some games like Tetris, Falcon F-16 and Vette!, all from Spectrum Holobytes. The code they used would be what the final form of this project strives to reach.
+    
+  <p>Full defails over at 68kmla: <a href="https://68kmla.org/bb/index.php?threads/october-2021-project-reverse-engineering-studio-session-song-format.39112/">thread</a>
+  
+  <p>
 Phase 1 (in progress):<br>
 ---DONE:<br>
 -Load a song file<br>
