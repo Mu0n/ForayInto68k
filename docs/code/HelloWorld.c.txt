@@ -1,0 +1,67 @@
+/* [Study Group 0] on Tinker Different,
+ * the Macintosh C programming learning club!
+ * August 2022
+ * Entry by Michael Juneau (1Bit Fever Dreams)
+ */
+
+//Definitions
+
+#define WINDOWTOP    50
+#define WINDOWLEFT   15
+#define WINDOWRIGHT  425
+#define WINDOWBOTTOM 155
+ 
+void main()
+	{
+	WindowRecord winRecord; //is optional but nice to have if you want to have permanent info on that window
+	WindowPtr winPtr; //is mandatory if you want a window to be managed
+	Rect winRect; //will contain the Rect object to set the bounds of the window
+	StringHandle myText; //handle to a pascal-style string.
+	
+	InitGraf(&qd.thePort); //Must do if you want to do anything graphical with Quickdraw, the main gfx Mac toolbox
+	InitFonts(); //Must do if you want fonts
+	InitWindows(); //Must do if you want to deal with windows
+	InitMenus(); //Must do if you want menus; unused here, could comment out
+	TEInit(); //Must do if you want text editing; ununsed here, could comment out
+	InitDialogs(nil); //Must do if you want dialogs (modal and unmodal); unused here, could comment out
+	InitCursor(); //Must do if you want a cursor to show up; otherwise, you're stuck with the watch icon until it quits
+	MoreMasters(); //Optional and unused here; sets a block of master pointers so that you can assign more Handles to various
+				   // relocatable areas of memory; handles are pointers to pointers to blocks of memory, a big Mac C quirk.
+				   // Must be called at the start of the program before you use chunks of memory to prevent fragmentation of RAM
+	
+	SetRect(&winRect, WINDOWLEFT, WINDOWTOP, WINDOWRIGHT, WINDOWBOTTOM);	 //Sets the bounding area of the window
+	myText = NewString("\pLet's tinker different(ly)!"); //allocates space for this string and sets it
+	//Next, we create a window.
+	winPtr = (WindowPtr) NewWindow(&winRecord, //saves info in a WindowRecord type
+								   &winRect, //address of the rectangle bounds of the window
+								   "\pHello World", //Pascal-style string for the window title
+								   true, //yes make this visible
+								   rDocProc, //see Windows.h for windows types
+								   (WindowPtr) -1L, //puts it in the front with no pointer to the window which it is behind of
+								   false, //no close box
+								   0L //no application defined reference, this window is programmatically defined and not from a resource
+								   );
+								   
+	FlushEvents(everyEvent,0); //flush events to prevent a click stuck on the Event queue to mess with the program
+	
+	TextSize(24); //Let's make it count!
+	TextFont(5); //Venice font on old macs with these classics installed - might look different on your machine
+	
+	//next is a block surrounding by HLock and HUnlock to lock our myText StringHandle. This is mandatory since a few functions
+	//may move around memory blocks to defrag the RAM. You can learn which mac toolbox functions do this if they have a little
+	//chip icon-with-action-lines in Think Reference Viewer if you check the function's explanation article. The icon is 
+	//always at the start of the article. StringWidth requires the area of memory pointed to by the StringHandle to be not moving
+	//while it accesses its data. Same thing is happening for DrawString. For more info, read about 'Memory Management'
+	
+	HLock((Handle)myText);
+	MoveTo((WINDOWRIGHT - StringWidth(*myText)) / 2,      //center it horizontally in the window; must find the width
+													      //with a helper function StringWidth
+	       (WINDOWBOTTOM - WINDOWTOP) / 2  + WINDOWTOP);  //center it vertically
+																					  
+	DrawString(*myText);	  
+	HUnlock((Handle)myText);
+	
+	while(!Button()); //cheap way of stalling execution and wait for a click before reaching the end of the app
+	TextSize(12);
+	TextFont(0);
+	}
